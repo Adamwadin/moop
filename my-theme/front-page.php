@@ -10,15 +10,15 @@
                 <label for="collection_title">Collection Title</label>
                 <input type="text" id="collection_title" name="collection_title" required>
 
-                <label for="collection_products">add products with IDs (seperate with ",")</label>
+                <label for="collection_products">Add products with IDs (separate with ",")</label>
                 <input type="text" id="collection_products" name="collection_products" required>
 
                 <input type="submit" name="submit_collection" value="Create Collection" class="button">
-
-
-
             </form>
+
+
         </div>
+
 
         <?php
         if (isset($_POST['submit_collection'])) {
@@ -30,16 +30,22 @@
                 'post_type' => 'product_collection',
                 'post_status' => 'publish',
                 'post_author' => get_current_user_id(),
+
             ));
 
             if ($collection_id) {
                 update_post_meta($collection_id, '_collection_products', $product_ids);
+
+
+
+
                 echo '<p>Collection created successfully!</p>';
             } else {
                 echo '<p>Failed to create collection. Please try again.</p>';
             }
         }
         ?>
+
     <?php endif; ?>
 
 
@@ -91,23 +97,89 @@
 
     <div class="collections">
         <h3>Our Collections</h3>
+        <form method="get" id="sort-collections">
+            <label for="category_filter">Category:</label>
+            <?php
+            // Dropdown for categories
+            wp_dropdown_categories(array(
+                'show_option_all' => 'All Categories',
+                'taxonomy' => 'category',
+                'name' => 'category_filter',
+                'orderby' => 'name',
+                'selected' => isset($_GET['category_filter']) ? $_GET['category_filter'] : 0,
+                'hierarchical' => true,
+                'show_count' => false,
+                'hide_empty' => true,
+            ));
+            ?>
+
+            <label for="sort_by">Sort By:</label>
+            <select name="sort_by" id="sort_by" onchange="this.form.submit()">
+                <option value="date" <?php selected($_GET['sort_by'], 'date'); ?>>Date Created</option>
+            </select>
+
+            <label for="order">Order:</label>
+            <select name="order" id="order" onchange="this.form.submit()">
+                <option value="ASC" <?php selected($_GET['order'], 'ASC'); ?>>Ascending</option>
+                <option value="DESC" <?php selected($_GET['order'], 'DESC'); ?>>Descending</option>
+            </select>
+
+            <input type="submit" value="Sort">
+        </form>
+
         <?php
+        // Retrieve sorting options and category filter from URL parameters
+        $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'date';
+        $order = isset($_GET['order']) ? $_GET['order'] : 'DESC';
+        $category_filter = isset($_GET['category_filter']) ? (int) $_GET['category_filter'] : 0;
+
         $collection_args = array(
             'post_type' => 'product_collection',
             'posts_per_page' => -1,
             'post_status' => 'publish',
+            'order' => $order,
         );
+
+        if ($sort_by === 'date') {
+            $collection_args['orderby'] = 'date';
+        } elseif ($sort_by === 'category') {
+            $collection_args['orderby'] = 'title'; // Sort alphabetically if sorted by category
+        }
+
+        // Apply category filter if a category is selected
+        if ($category_filter) {
+            $collection_args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'category',
+                    'field' => 'term_id',
+                    'terms' => $category_filter,
+                ),
+            );
+        }
+
         $collections = new WP_Query($collection_args);
 
         if ($collections->have_posts()) {
             while ($collections->have_posts()) {
                 $collections->the_post();
+
+                // Get the categories associated with the collection
+                $categories = get_the_terms(get_the_ID(), 'category');
+                $category_names = $categories ? implode(', ', wp_list_pluck($categories, 'name')) : 'Uncategorized';
                 ?>
+
                 <div class="collection">
                     <h4><?php the_title(); ?></h4>
+
+                    <!-- Display Date Created -->
+                    <p><strong>Date Created:</strong> <?php echo get_the_date(); ?></p>
+
+                    <!-- Display Categories -->
+                    <p><strong>Categories:</strong> <?php echo esc_html($category_names); ?></p>
+
                     <?php if (has_post_thumbnail()) { ?>
                         <div class="collection-thumbnail">
-                            <?php the_post_thumbnail('medium'); // Adjust the size as needed ?>
+                            <?php the_post_thumbnail('medium'); ?>
                         </div>
                     <?php } ?>
                     <a href="<?php the_permalink(); ?>" class="button">View Collection</a>
@@ -119,10 +191,25 @@
             echo '<p>No collections found.</p>';
         }
         ?>
+
     </div>
 
 
 </main>
 
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Restore the scroll position
+        if (sessionStorage.getItem("scrollPosition")) {
+            window.scrollTo(0, sessionStorage.getItem("scrollPosition"));
+            sessionStorage.removeItem("scrollPosition");
+        }
+
+        // Save scroll position before form submission
+        document.getElementById("sort-collections").addEventListener("submit", function () {
+            sessionStorage.setItem("scrollPosition", window.scrollY);
+        });
+    });
+</script>
 
 <?php get_footer(); ?>

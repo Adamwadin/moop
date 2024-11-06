@@ -3,6 +3,20 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+function register_collection_category_taxonomy()
+{
+    register_taxonomy(
+        'collection_category',
+        'product_collection',
+        array(
+            'label' => __('Collection Categories'),
+            'rewrite' => array('slug' => 'collection-category'),
+            'hierarchical' => true,
+        )
+    );
+}
+add_action('init', 'register_collection_category_taxonomy');
+
 function create_product_collection_cpt()
 {
     $labels = array(
@@ -19,6 +33,7 @@ function create_product_collection_cpt()
         'search_items' => 'Search Collections',
         'not_found' => 'No collections found.',
     );
+
     $args = array(
         'labels' => $labels,
         'public' => true,
@@ -30,7 +45,10 @@ function create_product_collection_cpt()
         'rewrite' => array('slug' => 'collections'),
         'taxonomies' => array('category'),
     );
+
     register_post_type('product_collection', $args);
+
+    register_taxonomy_for_object_type('category', 'product_collection');
 }
 add_action('init', 'create_product_collection_cpt');
 
@@ -57,6 +75,7 @@ function display_collection_meta_box($post)
     echo '</div>';
 }
 
+
 function save_collection_products($post_id)
 {
     if (isset($_POST['collection_products'])) {
@@ -69,7 +88,11 @@ add_action('save_post', 'save_collection_products');
 
 function add_collection_to_cart()
 {
-    if (isset($_POST['collection_id'])) {
+    if (isset($_POST['collection_id']) && isset($_POST['add_collection_to_cart_nonce'])) {
+        if (!wp_verify_nonce($_POST['add_collection_to_cart_nonce'], 'add_collection_to_cart')) {
+            return;
+        }
+
         $collection_id = intval($_POST['collection_id']);
         $products = get_post_meta($collection_id, '_collection_products', true);
 
@@ -83,5 +106,3 @@ function add_collection_to_cart()
     }
 }
 add_action('init', 'add_collection_to_cart');
-
-add_action('wp_loaded', 'add_collection_to_cart');

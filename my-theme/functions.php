@@ -23,6 +23,38 @@ function add_gtm_noscript()
     <?php
 }
 
+add_action('pre_get_posts', 'sort_collections_by_params');
+function sort_collections_by_params($query)
+{
+    if (!is_admin() && $query->is_main_query() && is_post_type_archive('product_collection')) {
+        if ($category_filter = get_query_var('category_filter')) {
+            $query->set('tax_query', array(
+                array(
+                    'taxonomy' => 'category',
+                    'field' => 'term_id',
+                    'terms' => $category_filter,
+                    'operator' => 'IN',
+                ),
+            ));
+        }
+
+        if ($sort_by = get_query_var('sort_by')) {
+            $query->set('orderby', $sort_by);
+            $order = get_query_var('order') ? get_query_var('order') : 'ASC';
+            $query->set('order', $order);
+        }
+    }
+}
+function add_custom_query_vars($vars)
+{
+    $vars[] = 'category_filter';
+    $vars[] = 'sort_by';
+    $vars[] = 'order';
+    return $vars;
+}
+add_filter('query_vars', 'add_custom_query_vars');
+
+
 function my_custom_theme_scripts()
 {
     wp_enqueue_style('style', get_stylesheet_uri());
@@ -37,6 +69,7 @@ function my_child_theme_enqueue_styles()
 
     wp_enqueue_style('child-style', get_stylesheet_directory_uri() . '/style.css', array('parent-style'));
 }
+
 
 
 
